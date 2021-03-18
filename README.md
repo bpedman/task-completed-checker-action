@@ -8,7 +8,7 @@ A GitHub action that checks if all tasks are completed in the pull requests.
 name: 'PR Tasks Completed Check'
 on: 
   pull_request:
-    types: [opened, edited]
+    types: [opened, edited, synchronize, reopened]
 
 jobs:
   task-check:
