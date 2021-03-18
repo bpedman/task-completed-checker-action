@@ -22,50 +22,52 @@ async function createOrUpdateCheck(
   const owner = github.context.repo.owner
   const repo = github.context.repo.repo
 
-  const existingChecksResponse = await githubApi.checks.listForRef({
+  await githubApi.checks.create({
+    name: CHECK_NAME,
     // eslint-disable-next-line @typescript-eslint/camelcase
-    check_name: CHECK_NAME,
-    ref,
+    head_sha: ref,
+    status: 'completed',
+    conclusion,
+    // eslint-disable-next-line @typescript-eslint/camelcase
+    completed_at: new Date().toISOString(),
+    output: {title: CHECK_NAME, summary, text},
     owner,
-    repo,
-    filter: 'latest'
+    repo
   })
 
-  if (
-    existingChecksResponse.status !== 200 ||
-    existingChecksResponse.data.total_count <= 0
-  ) {
-    core.debug('no matching existing check, creating a new one')
-    core.debug(
-      `status: ${existingChecksResponse.status} count: ${existingChecksResponse.data.total_count}`
-    )
-    await githubApi.checks.create({
-      name: CHECK_NAME,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      head_sha: ref,
-      status: 'completed',
-      conclusion,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      completed_at: new Date().toISOString(),
-      output: {title: CHECK_NAME, summary, text},
-      owner: github.context.repo.owner,
-      repo: github.context.repo.repo
-    })
-  } else {
-    const checkRunId = existingChecksResponse.data.check_runs[0].id
-    core.debug(`found existing check run ID: ${checkRunId}`)
-    await githubApi.checks.update({
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      check_run_id: checkRunId,
-      status: 'completed',
-      conclusion,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      completed_at: new Date().toISOString(),
-      output: {title: CHECK_NAME, summary, text},
-      owner: github.context.repo.owner,
-      repo: github.context.repo.repo
-    })
-  }
+  // const existingChecksResponse = await githubApi.checks.listForRef({
+  //   // eslint-disable-next-line @typescript-eslint/camelcase
+  //   check_name: CHECK_NAME,
+  //   ref,
+  //   owner,
+  //   repo,
+  //   filter: 'latest'
+  // })
+  //
+  // if (
+  //   existingChecksResponse.status !== 200 ||
+  //   existingChecksResponse.data.total_count <= 0
+  // ) {
+  //   core.debug('no matching existing check, creating a new one')
+  //   core.debug(
+  //     `status: ${existingChecksResponse.status} count: ${existingChecksResponse.data.total_count}`
+  //   )
+  //
+  // } else {
+  //   const checkRunId = existingChecksResponse.data.check_runs[0].id
+  //   core.debug(`found existing check run ID: ${checkRunId}`)
+  //   await githubApi.checks.update({
+  //     // eslint-disable-next-line @typescript-eslint/camelcase
+  //     check_run_id: checkRunId,
+  //     status: 'completed',
+  //     conclusion,
+  //     // eslint-disable-next-line @typescript-eslint/camelcase
+  //     completed_at: new Date().toISOString(),
+  //     output: {title: CHECK_NAME, summary, text},
+  //     owner: github.context.repo.owner,
+  //     repo: github.context.repo.repo
+  //   })
+  // }
 }
 
 async function run(): Promise<void> {
