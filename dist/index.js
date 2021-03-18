@@ -68,6 +68,8 @@ function createOrUpdateCheck(githubApi, conclusion, summary, text) {
         core.debug(`response code ${createResponse.status}`);
         core.debug(`response ${JSON.stringify(createResponse.data)}`);
         core.debug(`headers ${JSON.stringify(createResponse.headers)}`);
+        const payload = JSON.stringify(github.context.payload, undefined, 2);
+        core.info(`The event payload: ${payload}`);
         // const existingChecksResponse = await githubApi.checks.listForRef({
         //   // eslint-disable-next-line @typescript-eslint/camelcase
         //   check_name: CHECK_NAME,
