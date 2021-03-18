@@ -47,34 +47,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const utils_1 = __nccwpck_require__(918);
-const CHECK_NAME = 'Task Completed Check';
+const CHECK_NAME = 'Tasks Completed Check';
 function createOrUpdateCheck(githubApi, conclusion, summary, text) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
-        const payload = JSON.stringify(github.context.payload, undefined, 2);
-        core.info(`The event payload: ${payload}`);
         const ref = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.sha;
         const owner = github.context.repo.owner;
         const repo = github.context.repo.repo;
-        // const createResponse = await githubApi.checks.create({
-        //   name: CHECK_NAME,
-        //   // eslint-disable-next-line @typescript-eslint/camelcase
-        //   head_sha: ref,
-        //   status: 'completed',
-        //   conclusion,
-        //   // eslint-disable-next-line @typescript-eslint/camelcase
-        //   completed_at: new Date().toISOString(),
-        //   output: {title: CHECK_NAME, summary, text},
-        //   owner,
-        //   repo
-        // })
-        //
-        // core.debug(`response code ${createResponse.status}`)
-        // core.debug(`response ${JSON.stringify(createResponse.data)}`)
-        // core.debug(`headers ${JSON.stringify(createResponse.headers)}`)
-        //
-        // const payload = JSON.stringify(github.context.payload, undefined, 2)
-        // core.info(`The event payload: ${payload}`)
         const existingChecksResponse = yield githubApi.checks.listForRef({
             // eslint-disable-next-line @typescript-eslint/camelcase
             check_name: CHECK_NAME,
@@ -99,9 +78,9 @@ function createOrUpdateCheck(githubApi, conclusion, summary, text) {
                 owner,
                 repo
             });
-            core.debug(`response code ${createResponse.status}`);
-            core.debug(`response ${JSON.stringify(createResponse.data)}`);
-            core.debug(`headers ${JSON.stringify(createResponse.headers)}`);
+            if (createResponse.status !== 201) {
+                core.setFailed(`Error creating status check, response was ${createResponse.status} with data ${JSON.stringify(createResponse.data)}`);
+            }
         }
         else {
             const checkRunId = existingChecksResponse.data.check_runs[0].id;
@@ -117,9 +96,9 @@ function createOrUpdateCheck(githubApi, conclusion, summary, text) {
                 owner: github.context.repo.owner,
                 repo: github.context.repo.repo
             });
-            core.debug(`response code ${updateResponse.status}`);
-            core.debug(`response ${JSON.stringify(updateResponse.data)}`);
-            core.debug(`headers ${JSON.stringify(updateResponse.headers)}`);
+            if (updateResponse.status !== 200) {
+                core.setFailed(`Error updating status check, response was ${updateResponse.status} with data ${JSON.stringify(updateResponse.data)}`);
+            }
         }
     });
 }

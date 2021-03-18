@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {createTaskListText, removeIgnoreTaskLitsText} from './utils'
 
-const CHECK_NAME = 'Task Completed Check'
+const CHECK_NAME = 'Tasks Completed Check'
 
 type Conclusion =
   | 'success'
@@ -18,32 +18,9 @@ async function createOrUpdateCheck(
   summary: string,
   text: string
 ): Promise<void> {
-  const payload = JSON.stringify(github.context.payload, undefined, 2)
-  core.info(`The event payload: ${payload}`)
-
   const ref = github.context.payload.pull_request?.head.sha
   const owner = github.context.repo.owner
   const repo = github.context.repo.repo
-
-  // const createResponse = await githubApi.checks.create({
-  //   name: CHECK_NAME,
-  //   // eslint-disable-next-line @typescript-eslint/camelcase
-  //   head_sha: ref,
-  //   status: 'completed',
-  //   conclusion,
-  //   // eslint-disable-next-line @typescript-eslint/camelcase
-  //   completed_at: new Date().toISOString(),
-  //   output: {title: CHECK_NAME, summary, text},
-  //   owner,
-  //   repo
-  // })
-  //
-  // core.debug(`response code ${createResponse.status}`)
-  // core.debug(`response ${JSON.stringify(createResponse.data)}`)
-  // core.debug(`headers ${JSON.stringify(createResponse.headers)}`)
-  //
-  // const payload = JSON.stringify(github.context.payload, undefined, 2)
-  // core.info(`The event payload: ${payload}`)
 
   const existingChecksResponse = await githubApi.checks.listForRef({
     // eslint-disable-next-line @typescript-eslint/camelcase
@@ -62,6 +39,7 @@ async function createOrUpdateCheck(
     core.debug(
       `status: ${existingChecksResponse.status} count: ${existingChecksResponse.data.total_count}`
     )
+
     const createResponse = await githubApi.checks.create({
       name: CHECK_NAME,
       // eslint-disable-next-line @typescript-eslint/camelcase
@@ -75,9 +53,13 @@ async function createOrUpdateCheck(
       repo
     })
 
-    core.debug(`response code ${createResponse.status}`)
-    core.debug(`response ${JSON.stringify(createResponse.data)}`)
-    core.debug(`headers ${JSON.stringify(createResponse.headers)}`)
+    if (createResponse.status !== 201) {
+      core.setFailed(
+        `Error creating status check, response was ${
+          createResponse.status
+        } with data ${JSON.stringify(createResponse.data)}`
+      )
+    }
   } else {
     const checkRunId = existingChecksResponse.data.check_runs[0].id
     core.debug(`found existing check run ID: ${checkRunId}`)
@@ -93,9 +75,13 @@ async function createOrUpdateCheck(
       repo: github.context.repo.repo
     })
 
-    core.debug(`response code ${updateResponse.status}`)
-    core.debug(`response ${JSON.stringify(updateResponse.data)}`)
-    core.debug(`headers ${JSON.stringify(updateResponse.headers)}`)
+    if (updateResponse.status !== 200) {
+      core.setFailed(
+        `Error updating status check, response was ${
+          updateResponse.status
+        } with data ${JSON.stringify(updateResponse.data)}`
+      )
+    }
   }
 }
 
