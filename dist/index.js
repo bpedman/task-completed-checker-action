@@ -47,59 +47,78 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const utils_1 = __nccwpck_require__(918);
+const CHECK_NAME = 'Task Completed Check';
+function createOrUpdateCheck(githubApi, conclusion, summary, text) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const ref = process.env.GITHUB_SHA || '';
+        const owner = github.context.repo.owner;
+        const repo = github.context.repo.repo;
+        const existingChecksResponse = yield githubApi.checks.listForRef({
+            // eslint-disable-next-line @typescript-eslint/camelcase
+            check_name: CHECK_NAME,
+            ref,
+            owner,
+            repo,
+            filter: 'latest'
+        });
+        if (existingChecksResponse.status !== 200 ||
+            existingChecksResponse.data.total_count <= 0) {
+            core.debug('no matching existing check, creating a new one');
+            core.debug(`status: ${existingChecksResponse.status} count: ${existingChecksResponse.data.total_count}`);
+            yield githubApi.checks.create({
+                name: CHECK_NAME,
+                // eslint-disable-next-line @typescript-eslint/camelcase
+                head_sha: ref,
+                status: 'completed',
+                conclusion,
+                // eslint-disable-next-line @typescript-eslint/camelcase
+                completed_at: new Date().toISOString(),
+                output: { title: CHECK_NAME, summary, text },
+                owner: github.context.repo.owner,
+                repo: github.context.repo.repo
+            });
+        }
+        else {
+            const checkRunId = existingChecksResponse.data.check_runs[0].id;
+            core.debug(`found existing check run ID: ${checkRunId}`);
+            yield githubApi.checks.update({
+                // eslint-disable-next-line @typescript-eslint/camelcase
+                check_run_id: checkRunId,
+                status: 'completed',
+                conclusion,
+                // eslint-disable-next-line @typescript-eslint/camelcase
+                completed_at: new Date().toISOString(),
+                output: { title: CHECK_NAME, summary, text },
+                owner: github.context.repo.owner,
+                repo: github.context.repo.repo
+            });
+        }
+    });
+}
 function run() {
-    var _a, _b, _c;
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const body = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.body;
             const token = core.getInput('repo-token', { required: true });
             const githubApi = new github.GitHub(token);
-            const appName = 'Task Completed Checker';
             if (!body) {
                 core.info('no task list and skip the process.');
-                yield githubApi.checks.create({
-                    name: appName,
-                    // eslint-disable-next-line @typescript-eslint/camelcase
-                    head_sha: (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.sha,
-                    status: 'completed',
-                    conclusion: 'success',
-                    // eslint-disable-next-line @typescript-eslint/camelcase
-                    completed_at: new Date().toISOString(),
-                    output: {
-                        title: appName,
-                        summary: 'No task list',
-                        text: 'No task list'
-                    },
-                    owner: github.context.repo.owner,
-                    repo: github.context.repo.repo
-                });
+                yield createOrUpdateCheck(githubApi, 'success', 'No task list', 'No task list');
                 return;
             }
             const result = utils_1.removeIgnoreTaskLitsText(body);
             core.debug('creates a list of tasks which removed ignored task: ');
             core.debug(result);
-            const isTaskCompleted = result.match(/(- \[[ ]\].+)/g) === null;
+            const isTaskCompleted = result.match(/([-*] \[[ ]].+)/g) === null;
             const text = utils_1.createTaskListText(result);
             core.debug('creates a list of completed tasks and uncompleted tasks: ');
             core.debug(text);
-            yield githubApi.checks.create({
-                name: appName,
-                // eslint-disable-next-line @typescript-eslint/camelcase
-                head_sha: (_c = github.context.payload.pull_request) === null || _c === void 0 ? void 0 : _c.head.sha,
-                status: 'completed',
-                conclusion: isTaskCompleted ? 'success' : 'failure',
-                // eslint-disable-next-line @typescript-eslint/camelcase
-                completed_at: new Date().toISOString(),
-                output: {
-                    title: appName,
-                    summary: isTaskCompleted
-                        ? 'All tasks are completed!'
-                        : 'Some tasks are uncompleted!',
-                    text
-                },
-                owner: github.context.repo.owner,
-                repo: github.context.repo.repo
-            });
+            const conclusion = isTaskCompleted ? 'success' : 'failure';
+            const summary = isTaskCompleted
+                ? 'All tasks are completed!'
+                : 'Some tasks are uncompleted!';
+            yield createOrUpdateCheck(githubApi, conclusion, summary, text);
         }
         catch (error) {
             core.setFailed(error.message);
@@ -119,12 +138,12 @@ run();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.createTaskListText = exports.removeIgnoreTaskLitsText = void 0;
 function removeIgnoreTaskLitsText(text) {
-    return text.replace(/<!-- ignore-task-list-start -->[\s| ]*(- \[[x| ]\] .+[\s| ]*)+<!-- ignore-task-list-end -->/g, '');
+    return text.replace(/<!-- ignore-task-list-start -->[\s| ]*([-*] \[[x| ]] .+[\s| ]*)+<!-- ignore-task-list-end -->/g, '');
 }
 exports.removeIgnoreTaskLitsText = removeIgnoreTaskLitsText;
 function createTaskListText(body) {
-    const completedTasks = body.match(/(- \[[x]\].+)/g);
-    const uncompletedTasks = body.match(/(- \[[ ]\].+)/g);
+    const completedTasks = body.match(/([-*] \[[x]].+)/g);
+    const uncompletedTasks = body.match(/([-*] \[[ ]].+)/g);
     let text = '';
     if (completedTasks !== null) {
         for (let index = 0; index < completedTasks.length; index++) {
