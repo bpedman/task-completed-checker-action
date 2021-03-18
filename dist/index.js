@@ -66,8 +66,8 @@ function createOrUpdateCheck(githubApi, conclusion, summary, text) {
             repo
         });
         core.debug(`response code ${createResponse.status}`);
-        core.debug(`response ${createResponse.data}`);
-        core.debug(`headers ${createResponse.headers}`);
+        core.debug(`response ${JSON.stringify(createResponse.data)}`);
+        core.debug(`headers ${JSON.stringify(createResponse.headers)}`);
         // const existingChecksResponse = await githubApi.checks.listForRef({
         //   // eslint-disable-next-line @typescript-eslint/camelcase
         //   check_name: CHECK_NAME,
