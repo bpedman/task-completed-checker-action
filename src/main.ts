@@ -22,7 +22,7 @@ async function createOrUpdateCheck(
   const owner = github.context.repo.owner
   const repo = github.context.repo.repo
 
-  await githubApi.checks.create({
+  const createResponse = await githubApi.checks.create({
     name: CHECK_NAME,
     // eslint-disable-next-line @typescript-eslint/camelcase
     head_sha: ref,
@@ -34,6 +34,10 @@ async function createOrUpdateCheck(
     owner,
     repo
   })
+
+  core.debug(`response code ${createResponse.status}`)
+  core.debug(`response ${createResponse.data}`)
+  core.debug(`headers ${createResponse.headers}`)
 
   // const existingChecksResponse = await githubApi.checks.listForRef({
   //   // eslint-disable-next-line @typescript-eslint/camelcase

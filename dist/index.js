@@ -53,7 +53,7 @@ function createOrUpdateCheck(githubApi, conclusion, summary, text) {
         const ref = process.env.GITHUB_SHA || '';
         const owner = github.context.repo.owner;
         const repo = github.context.repo.repo;
-        yield githubApi.checks.create({
+        const createResponse = yield githubApi.checks.create({
             name: CHECK_NAME,
             // eslint-disable-next-line @typescript-eslint/camelcase
             head_sha: ref,
@@ -65,6 +65,9 @@ function createOrUpdateCheck(githubApi, conclusion, summary, text) {
             owner,
             repo
         });
+        core.debug(`response code ${createResponse.status}`);
+        core.debug(`response ${createResponse.data}`);
+        core.debug(`headers ${createResponse.headers}`);
         // const existingChecksResponse = await githubApi.checks.listForRef({
         //   // eslint-disable-next-line @typescript-eslint/camelcase
         //   check_name: CHECK_NAME,
