@@ -48,57 +48,26 @@ const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const utils_1 = __nccwpck_require__(918);
 const CHECK_NAME = 'Tasks Completed Check';
-function createOrUpdateCheck(githubApi, conclusion, summary, text) {
+function createCheck(githubApi, conclusion, summary, text) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const ref = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.sha;
         const owner = github.context.repo.owner;
         const repo = github.context.repo.repo;
-        const existingChecksResponse = yield githubApi.checks.listForRef({
+        const createResponse = yield githubApi.checks.create({
+            name: CHECK_NAME,
             // eslint-disable-next-line @typescript-eslint/camelcase
-            check_name: CHECK_NAME,
-            ref,
+            head_sha: ref,
+            status: 'completed',
+            conclusion,
+            // eslint-disable-next-line @typescript-eslint/camelcase
+            completed_at: new Date().toISOString(),
+            output: { title: CHECK_NAME, summary, text },
             owner,
-            repo,
-            filter: 'latest'
+            repo
         });
-        if (existingChecksResponse.status !== 200 ||
-            existingChecksResponse.data.total_count <= 0) {
-            core.debug('no matching existing check, creating a new one');
-            core.debug(`status: ${existingChecksResponse.status} count: ${existingChecksResponse.data.total_count}`);
-            const createResponse = yield githubApi.checks.create({
-                name: CHECK_NAME,
-                // eslint-disable-next-line @typescript-eslint/camelcase
-                head_sha: ref,
-                status: 'completed',
-                conclusion,
-                // eslint-disable-next-line @typescript-eslint/camelcase
-                completed_at: new Date().toISOString(),
-                output: { title: CHECK_NAME, summary, text },
-                owner,
-                repo
-            });
-            if (createResponse.status !== 201) {
-                core.setFailed(`Error creating status check, response was ${createResponse.status} with data ${JSON.stringify(createResponse.data)}`);
-            }
-        }
-        else {
-            const checkRunId = existingChecksResponse.data.check_runs[0].id;
-            core.debug(`found existing check run ID: ${checkRunId}`);
-            const updateResponse = yield githubApi.checks.update({
-                // eslint-disable-next-line @typescript-eslint/camelcase
-                check_run_id: checkRunId,
-                status: 'completed',
-                conclusion,
-                // eslint-disable-next-line @typescript-eslint/camelcase
-                completed_at: new Date().toISOString(),
-                output: { title: CHECK_NAME, summary, text },
-                owner: github.context.repo.owner,
-                repo: github.context.repo.repo
-            });
-            if (updateResponse.status !== 200) {
-                core.setFailed(`Error updating status check, response was ${updateResponse.status} with data ${JSON.stringify(updateResponse.data)}`);
-            }
+        if (createResponse.status !== 201) {
+            core.setFailed(`Error creating status check, response was ${createResponse.status} with data ${JSON.stringify(createResponse.data)}`);
         }
     });
 }
@@ -110,8 +79,8 @@ function run() {
             const token = core.getInput('repo-token', { required: true });
             const githubApi = new github.GitHub(token);
             if (!body) {
-                core.info('no task list and skip the process.');
-                yield createOrUpdateCheck(githubApi, 'success', 'No task list', 'No task list');
+                core.info('no task list present, skipping');
+                yield createCheck(githubApi, 'success', 'No task list', 'No task list');
                 return;
             }
             const result = utils_1.removeIgnoreTaskLitsText(body);
@@ -125,7 +94,13 @@ function run() {
             const summary = isTaskCompleted
                 ? 'All tasks are completed!'
                 : 'Some tasks are uncompleted!';
-            yield createOrUpdateCheck(githubApi, conclusion, summary, text);
+            yield createCheck(githubApi, conclusion, summary, text);
+            if (isTaskCompleted) {
+                core.info(summary);
+            }
+            else {
+                core.setFailed(summary);
+            }
         }
         catch (error) {
             core.setFailed(error.message);

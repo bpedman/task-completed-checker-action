@@ -12,7 +12,7 @@ type Conclusion =
   | 'timed_out'
   | 'action_required'
 
-async function createOrUpdateCheck(
+async function createCheck(
   githubApi: github.GitHub,
   conclusion: Conclusion,
   summary: string,
@@ -22,66 +22,25 @@ async function createOrUpdateCheck(
   const owner = github.context.repo.owner
   const repo = github.context.repo.repo
 
-  const existingChecksResponse = await githubApi.checks.listForRef({
+  const createResponse = await githubApi.checks.create({
+    name: CHECK_NAME,
     // eslint-disable-next-line @typescript-eslint/camelcase
-    check_name: CHECK_NAME,
-    ref,
+    head_sha: ref,
+    status: 'completed',
+    conclusion,
+    // eslint-disable-next-line @typescript-eslint/camelcase
+    completed_at: new Date().toISOString(),
+    output: {title: CHECK_NAME, summary, text},
     owner,
-    repo,
-    filter: 'latest'
+    repo
   })
 
-  if (
-    existingChecksResponse.status !== 200 ||
-    existingChecksResponse.data.total_count <= 0
-  ) {
-    core.debug('no matching existing check, creating a new one')
-    core.debug(
-      `status: ${existingChecksResponse.status} count: ${existingChecksResponse.data.total_count}`
+  if (createResponse.status !== 201) {
+    core.setFailed(
+      `Error creating status check, response was ${
+        createResponse.status
+      } with data ${JSON.stringify(createResponse.data)}`
     )
-
-    const createResponse = await githubApi.checks.create({
-      name: CHECK_NAME,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      head_sha: ref,
-      status: 'completed',
-      conclusion,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      completed_at: new Date().toISOString(),
-      output: {title: CHECK_NAME, summary, text},
-      owner,
-      repo
-    })
-
-    if (createResponse.status !== 201) {
-      core.setFailed(
-        `Error creating status check, response was ${
-          createResponse.status
-        } with data ${JSON.stringify(createResponse.data)}`
-      )
-    }
-  } else {
-    const checkRunId = existingChecksResponse.data.check_runs[0].id
-    core.debug(`found existing check run ID: ${checkRunId}`)
-    const updateResponse = await githubApi.checks.update({
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      check_run_id: checkRunId,
-      status: 'completed',
-      conclusion,
-      // eslint-disable-next-line @typescript-eslint/camelcase
-      completed_at: new Date().toISOString(),
-      output: {title: CHECK_NAME, summary, text},
-      owner: github.context.repo.owner,
-      repo: github.context.repo.repo
-    })
-
-    if (updateResponse.status !== 200) {
-      core.setFailed(
-        `Error updating status check, response was ${
-          updateResponse.status
-        } with data ${JSON.stringify(updateResponse.data)}`
-      )
-    }
   }
 }
 
@@ -93,13 +52,8 @@ async function run(): Promise<void> {
     const githubApi = new github.GitHub(token)
 
     if (!body) {
-      core.info('no task list and skip the process.')
-      await createOrUpdateCheck(
-        githubApi,
-        'success',
-        'No task list',
-        'No task list'
-      )
+      core.info('no task list present, skipping')
+      await createCheck(githubApi, 'success', 'No task list', 'No task list')
       return
     }
 
@@ -119,7 +73,13 @@ async function run(): Promise<void> {
       ? 'All tasks are completed!'
       : 'Some tasks are uncompleted!'
 
-    await createOrUpdateCheck(githubApi, conclusion, summary, text)
+    await createCheck(githubApi, conclusion, summary, text)
+
+    if (isTaskCompleted) {
+      core.info(summary)
+    } else {
+      core.setFailed(summary)
+    }
   } catch (error) {
     core.setFailed(error.message)
   }
