@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
+import {GitHub} from '@actions/github/lib/utils'
 import {createTaskListText, removeIgnoreTaskLitsText} from './utils'
 
 const CHECK_NAME = 'Tasks Completed Check'
@@ -13,7 +14,7 @@ type Conclusion =
   | 'action_required'
 
 async function createCheck(
-  githubApi: github.GitHub,
+  githubApi: InstanceType<typeof GitHub>,
   conclusion: Conclusion,
   summary: string,
   text: string
@@ -24,11 +25,9 @@ async function createCheck(
 
   const createResponse = await githubApi.checks.create({
     name: CHECK_NAME,
-    // eslint-disable-next-line @typescript-eslint/camelcase
     head_sha: ref,
     status: 'completed',
     conclusion,
-    // eslint-disable-next-line @typescript-eslint/camelcase
     completed_at: new Date().toISOString(),
     output: {title: CHECK_NAME, summary, text},
     owner,
@@ -49,7 +48,7 @@ async function run(): Promise<void> {
     const body = github.context.payload.pull_request?.body
 
     const token = core.getInput('repo-token', {required: true})
-    const githubApi = new github.GitHub(token)
+    const githubApi = github.getOctokit(token)
 
     if (!body) {
       core.info('no task list present, skipping')
